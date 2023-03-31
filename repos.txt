@@ -999,5 +999,6 @@ Kong/docs.konghq.com
 DevExpress/DevExtreme
 civicrm/civihr
 chromium/chromium
-torvalds/linux/
-llvm/llvm-project/
+torvalds/linux
+llvm/llvm-project
+cdnjs/cdnjs
