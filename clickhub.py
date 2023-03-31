@@ -1,13 +1,14 @@
 import argparse
 import json
 import logging
+import os.path
 import sys
 import uuid
 import boto3
 import yaml
 from clickhouse import ClickHouse, RepoClickHouseClient, DataType
 from repo.importer import import_repo, worker_process
-from repo.schedule import schedule_repo_job, schedule_all_repos
+from repo.schedule import schedule_repo_job, schedule_all_current_repos, schedule_all_repos
 
 parser = argparse.ArgumentParser(description='github importer',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -31,6 +32,10 @@ worker.add_argument('--id', type=str, default=str(uuid.uuid4()))
 sub_parser.add_parser('import', parents=[repo_name_parser], help='import a repo')
 
 sub_parser.add_parser('update_all_repos', parents=[priority_parser], help='schedule all current repos for update')
+
+bulk_scheduler = sub_parser.add_parser('bulk_schedule', parents=[priority_parser],
+                                       help='bulk schedule repos')
+bulk_scheduler.add_argument('--file', type=str, default='repos.txt')
 
 args = parser.parse_args()
 
@@ -88,9 +93,20 @@ if __name__ == '__main__':
         except Exception as e:
             logging.fatal(f'unable to schedule repo - {e}')
             sys.exit(1)
+    elif args.command == 'bulk_schedule':
+        logging.info(f'scheduling import of repos from file {args.file}')
+        if os.path.exists(args.file) and os.path.isfile(args.file):
+            try:
+                schedule_all_repos(client, sqs, queue.url, config['task_table'], args.file, args.priority)
+            except Exception as e:
+                logging.fatal(f'unable to import repos from file {args.file} - {e}')
+                sys.exit(1)
+        else:
+            logging.fatal(f'{args.file} does not exist or is not a file')
+            sys.exit(1)
     elif args.command == 'update_all_repos':
         try:
-            schedule_all_repos(client, sqs, queue.url, config['repo_lookup_table'], config['task_table'], args.priority)
+            schedule_all_current_repos(client, sqs, queue.url, config['repo_lookup_table'], config['task_table'], args.priority)
         except Exception as e:
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)

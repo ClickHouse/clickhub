@@ -57,8 +57,8 @@ def schedule_repo_job(client: RepoClickHouseClient, sqs: BaseClient, queue_url: 
 
 
 # schedules all current repos based on repos in
-def schedule_all_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, repo_table, task_table, priority,
-                       repo_column='repo_name', time_column='updated_at', limit=50000):
+def schedule_all_current_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, repo_table, task_table, priority,
+                               repo_column='repo_name', time_column='updated_at', limit=50000):
     rows = client.query_rows(
         f'SELECT {repo_column}, min({time_column}) as last_updated FROM {repo_table} GROUP BY {repo_column} '
         f'ORDER BY last_updated ASC LIMIT {limit}')
@@ -78,3 +78,10 @@ def schedule_all_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url:
         logging.info(f'scheduling: {to_schedule}')
         for repo_name in list(to_schedule):
             schedule_repo_job(client, sqs, queue_url, task_table, repo_name, priority)
+
+
+def schedule_all_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, task_table: str, filename: str,
+                      priority: int):
+    with open(filename, 'r') as repos:
+        for repo_name in repos:
+            schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority)
