@@ -1,0 +1,13 @@
+host: 'ykvrf4mwxt.eu-west-1.aws.clickhouse-staging.com'
+port: 8443
+native_port: 9440
+username: default
+password: 'x2Te9o~sXAELA'
+secure: true
+data_cache: '/opt/git_cache'
+task_table: 'git.work_queue'
+queue_name: 'github.fifo'
+queue_region: 'eu-west-1'
+sleep_time: 10
+# table on which we look up current repos
+repo_lookup_table: 'git.commits'
