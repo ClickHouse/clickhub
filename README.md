@@ -14,13 +14,16 @@ Note: repos are cloned locally. This can require significant disk space for a la
 - python3.10+
 - git - authenticated with ssh keys
 - clickhouse-client
-- sqs queue (fifo) - deduplicate on groupId.
+- sqs queue (fifo) - deduplicate on groupId. Ensure you are authenticated. i.e. via awscli and  `aws configure`.
 
 ## Installing
 
 `pip install -r requirements.txt`
 
+Pre-create tables in ClickHouse. Default database is `git`.
+
 ## Running
+
 
 ```bash
 usage: clickhub.py [-h] [-c CONFIG] [-d] {schedule,start_worker,import,update_all_repos} ...
