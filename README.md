@@ -62,7 +62,7 @@ Adds the repo to work queue (requires sqs queue).
 python clickhub.py schedule --repo_name <name>
 ```
 
-## Start worker
+### Start worker
 
 Starts a worker consuming from queue
 
@@ -70,7 +70,7 @@ Starts a worker consuming from queue
 python clickhub.py start_worker
 ```
 
-## Update all repos
+### Update all repos
 
 Schedules a job for all current repositories. Determined by setting `repo_lookup_table`. 
 
