@@ -84,7 +84,7 @@ def schedule_all_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url:
                       priority: int):
     with open(filename, 'r') as repos:
         for repo_name in repos:
-            if not _is_job_scheduled(client, task_table, repo_name):
+            if not _is_job_scheduled(client, task_table, repo_name.strip()):
                 schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority)
             else:
                 logging.info(f'skipping {repo_name} as already scheduled')

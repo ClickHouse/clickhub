@@ -145,6 +145,7 @@ def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str
             logging.info(f'job received with id {message["MessageId"]}')
             body = json.loads(message['Body'])
             repo_name = body['repo_name']
+            ##TODO - check its been scheduled. ignore and delete if not.
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
                 import_repo(client, repo_name, data_cache, types)
