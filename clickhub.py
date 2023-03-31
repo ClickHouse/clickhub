@@ -22,14 +22,15 @@ repo_name_parser.add_argument('--repo_name', type=str, required=True)
 priority_parser = argparse.ArgumentParser(add_help=False)
 priority_parser.add_argument('--priority', type=int, default=0)
 
-schedule = sub_parser.add_parser('schedule', parents=[repo_name_parser, priority_parser])
+schedule = sub_parser.add_parser('schedule', parents=[repo_name_parser, priority_parser],
+                                 help='Schedule a repo for import (add queue to queue)')
 
-worker = sub_parser.add_parser('start_worker')
+worker = sub_parser.add_parser('start_worker', help='start a worker to consume from queue')
 worker.add_argument('--id', type=str, default=str(uuid.uuid4()))
 
-sub_parser.add_parser('import', parents=[repo_name_parser])
+sub_parser.add_parser('import', parents=[repo_name_parser], help='import a repo')
 
-sub_parser.add_parser('update_all_repos', parents=[priority_parser])
+sub_parser.add_parser('update_all_repos', parents=[priority_parser], help='schedule all current repos for update')
 
 args = parser.parse_args()
 
@@ -68,16 +69,18 @@ if __name__ == '__main__':
                             username=config['username'],
                             password=config['password'], secure=config['secure'])
     client = RepoClickHouseClient(clickhouse)
-    sqs = boto3.client('sqs')
-    try:
-        queue = boto3.resource(
-            'sqs',
-            region_name=config['queue_region']
-        ).get_queue_by_name(QueueName=config['queue_name'])
-        pass
-    except sqs.exceptions.QueueDoesNotExist:
-        logging.fatal(f"queue {config['queue_name']} does not exist in region {config['queue_region']}")
-        sys.exit(1)
+    if args.command != 'import':
+        # import doesn't need sqs
+        sqs = boto3.client('sqs')
+        try:
+            queue = boto3.resource(
+                'sqs',
+                region_name=config['queue_region']
+            ).get_queue_by_name(QueueName=config['queue_name'])
+            pass
+        except sqs.exceptions.QueueDoesNotExist:
+            logging.fatal(f"queue {config['queue_name']} does not exist in region {config['queue_region']}")
+            sys.exit(1)
     if args.command == 'schedule':
         logging.info(f'scheduling import of repo {args.repo_name}')
         try:

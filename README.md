@@ -1,3 +1,106 @@
+# ClickHub
+
+GitHub analytics with the world's fastest real-time analytics database.
+
+## Capabilities
+
+- Imports a github repo to ClickHouse (currently assumes tables are pre-created)
+- Job queue for repositories to import consumed by workers. Scales linearly.
+
+Note: repos are cloned locally. This can require significant disk space for a large number of repos.
+
+## Pre-requisites
+
+- python3.10+
+- git - authenticated with ssh keys
+- clickhouse-client
+- sqs queue (fifo) - deduplicate on groupId.
+
+## Installing
+
+`pip install -r requirements.txt`
+
+## Running
+
+```bash
+usage: clickhub.py [-h] [-c CONFIG] [-d] {schedule,start_worker,import,update_all_repos} ...
+
+github importer
+
+positional arguments:
+  {schedule,start_worker,import,update_all_repos}
+    schedule            Schedule a repo for import (add queue to queue)
+    start_worker        start a worker to consume from queue
+    import              import a repo
+    update_all_repos    schedule all current repos for update
+
+options:
+  -h, --help            show this help message and exit
+  -c CONFIG, --config CONFIG
+                        config (default: config.yml)
+  -d, --debug           debug (default: False)
+```
+
+### Import a repository
+
+Imports a repository. Note this uses local machine.
+
+```bash
+python clickhub.py import --repo_name <name>
+```
+
+Caution: ensure this isn't being imported by a worker on the current machine. This is useful for adding a repo only.
+
+### Schedule a repo
+
+Adds the repo to work queue (requires sqs queue).
+
+```bash
+python clickhub.py schedule --repo_name <name>
+```
+
+## Start worker
+
+Starts a worker consuming from queue
+
+```bash
+python clickhub.py start_worker
+```
+
+## Update all repos
+
+Schedules a job for all current repositories. Determined by setting `repo_lookup_table`. 
+
+```bash
+python clickhub.py update_all_repos
+```
+
+## Config
+
+See [config.yml](config.yml)
+
+```yaml
+# clickhouse details
+host: ''
+port: 8443
+native_port: 9440
+username: default
+password: ''
+secure: true
+# location to clone repos
+data_cache: '/opt/git_cache'
+# keeper map table to assist scheduling
+task_table: 'git.work_queue'
+# sqs queue details
+queue_name: 'github.fifo'
+queue_region: 'eu-west-1'
+# period between worker polls
+sleep_time: 10
+# table on which we look up current repos
+repo_lookup_table: 'git.commits'
+```
+
+
 ## Table Schemas
 
 ```sql

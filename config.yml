@@ -1,13 +1,18 @@
+# clickhouse details
 host: ''
 port: 8443
 native_port: 9440
 username: default
 password: ''
 secure: true
+# location to clone repos
 data_cache: '/opt/git_cache'
+# keeper map table to assist scheduling
 task_table: 'git.work_queue'
+# sqs queue details
 queue_name: 'github.fifo'
 queue_region: 'eu-west-1'
+# period between worker polls
 sleep_time: 10
 # table on which we look up current repos
 repo_lookup_table: 'git.commits'
