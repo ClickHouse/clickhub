@@ -39,8 +39,7 @@ bulk_scheduler.add_argument('--file', type=str, default='repos.txt')
 
 args = parser.parse_args()
 
-logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
-                    format='%(asctime)s %(levelname)s %(message)s')
+
 
 
 def load_config(path):
@@ -74,6 +73,9 @@ if __name__ == '__main__':
                             username=config['username'],
                             password=config['password'], secure=config['secure'])
     client = RepoClickHouseClient(clickhouse)
+    if args.command != 'start_worker':
+        logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
+                            format='%(asctime)s %(levelname)s %(message)s')
     if args.command != 'import':
         # import doesn't need sqs
         sqs = boto3.client('sqs')
@@ -86,6 +88,7 @@ if __name__ == '__main__':
         except sqs.exceptions.QueueDoesNotExist:
             logging.fatal(f"queue {config['queue_name']} does not exist in region {config['queue_region']}")
             sys.exit(1)
+
     if args.command == 'schedule':
         logging.info(f'scheduling import of repo {args.repo_name}')
         try:
@@ -111,11 +114,16 @@ if __name__ == '__main__':
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)
     else:
+        # these commands need clickhouse tooling
         if not is_tool('clickhouse'):
             logging.fatal('unable to find clickhouse on PATH')
             sys.exit(1)
         if args.command == 'import':
             import_repo(client, args.repo_name, config['data_cache'], types)
-        else:
+        elif args.command == 'start_worker':
+            # workers log to file based on id
+            logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
+                                format='%(asctime)s %(levelname)s %(message)s', filename=f'worker-log-{args.id}.log',
+                                filemode='a')
             worker_process(client, sqs, queue.url, config['data_cache'], config['task_table'],
                            args.id, types, config['sleep_time'])
