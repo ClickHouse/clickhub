@@ -98,7 +98,7 @@ def bulk_schedule_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url
         for repo_name in repos:
             repo_name = repo_name.strip()
             try:
-                schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority,
+                schedule_repo_job(client, sqs, queue_url, task_table, repo_name, priority,
                                   max_queue_length=max_queue_length)
             except Exception as e:
                 logging.warning(f'unable to schedule repo [{repo_name}] - {str(e)}')

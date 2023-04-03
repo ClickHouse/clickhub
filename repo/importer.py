@@ -162,8 +162,6 @@ def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str
             # 2. failed jobs are deleted from sqs. This should never happen and is an exception case.
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
-                if is_valid_repo(repo_name):
-                    raise Exception(f'skipping [{repo_name}] as not valid')
                 job = client.query_row(f"SELECT repo_name, scheduled, priority, worker_id, started_time "
                                        f"FROM {task_table} WHERE repo_name='{repo_name}'")
                 if job is None:
