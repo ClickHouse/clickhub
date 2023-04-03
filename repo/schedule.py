@@ -23,7 +23,7 @@ def queue_length(client: RepoClickHouseClient, task_table):
 # we assume scheduler is single threaded at the moment (pending KeeperMap transactions).
 # Note we could impose a limit here on jobs or new jobs. Priority also currently ignored.
 def schedule_repo_job(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, task_table: str, repo_name: str,
-                      priority: int, max_queue_length = sys.maxsize):
+                      priority: int, max_queue_length=sys.maxsize):
     if queue_length(client, task_table) > max_queue_length:
         raise Exception(f'cannot schedule [{repo_name}]. Max queue size [{max_queue_length}] exceeded.')
     if not is_valid_repo(repo_name):
@@ -97,11 +97,8 @@ def bulk_schedule_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url
     with open(filename, 'r') as repos:
         for repo_name in repos:
             repo_name = repo_name.strip()
-            if is_job_scheduled(client, task_table, repo_name):
-                logging.warning(f'skipping [{repo_name}] as already scheduled')
-                continue
-            if not is_valid_repo(repo_name):
-                logging.warning(f'skipping [{repo_name}] as not valid')
-                continue
-            schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority,
-                              max_queue_length=max_queue_length)
+            try:
+                schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority,
+                                  max_queue_length=max_queue_length)
+            except Exception as e:
+                logging.warning(f'unable to schedule repo [{repo_name}] - {str(e)}')

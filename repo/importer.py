@@ -162,6 +162,8 @@ def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str
             # 2. failed jobs are deleted from sqs. This should never happen and is an exception case.
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
+                if is_valid_repo(repo_name):
+                    raise Exception(f'skipping [{repo_name}] as not valid')
                 job = client.query_row(f"SELECT repo_name, scheduled, priority, worker_id, started_time "
                                        f"FROM {task_table} WHERE repo_name='{repo_name}'")
                 if job is None:
@@ -176,9 +178,12 @@ def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str
                 import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
             except Exception:
                 logging.exception(f'[{str(worker_id)}] failed on repo [{repo_name}]')
-            finally:
+            try:
+                logging.info(f'cleaning up job [{repo_name}]')
                 # always release the job so it can be scheduled
                 sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=message['ReceiptHandle'])
                 client.query_row(f"DELETE FROM {task_table} WHERE repo_name='{repo_name}'")
+            except:
+                logging.exception(f'unable to clean up job [{repo_name}]. It may be re-scheduled.')
         logging.info(f'{worker_id} sleeping {sleep_time}s till next poll')
         time.sleep(sleep_time)
