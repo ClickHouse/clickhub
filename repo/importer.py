@@ -116,6 +116,7 @@ def _remove_file(file_path):
         logging.warning(f'[{file_path}] does not exist. Cannot remove.')
     try:
         os.remove(file_path)
+        logging.info(f'removed file [{file_path}]')
     except:
         logging.exception(f'unable to remove [{file_path}]')
 
@@ -130,7 +131,7 @@ def import_repo(client: RepoClickHouseClient, repo_name: str, data_cache: str, t
         if clickhouse_import(repo_path, repo_name, client, data_type) != 0:
             raise Exception(f'unable to import [{data_type.name}] for [{repo_name}] to ClicKHouse')
         if not keep_files:
-            _remove_file(os.path.join(repo_path, f'{data_type}.tsv'))
+            _remove_file(os.path.join(repo_path, f'{data_type.name}.tsv'))
 
 
 def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, data_cache: str, task_table: str,
@@ -170,8 +171,8 @@ def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str
                     raise Exception(f'repo [{repo_name}] is already owned by worker [{job[3]}]. ignoring.')
                 scheduled_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 # change to an insert in job processing table
-                client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = {worker_id}, "
-                                 f"started_time = '{scheduled_time}' WHERE repo_name = {repo_name}")
+                client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = '{worker_id}', "
+                                 f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}'")
                 import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
             except Exception:
                 logging.exception(f'[{str(worker_id)}] failed on repo [{repo_name}]')

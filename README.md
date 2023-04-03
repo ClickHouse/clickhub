@@ -209,7 +209,7 @@ ORDER BY (repo_name, time, commit_hash, path, line_number_old, line_number_new)
 ```
 
 ```sql
-CREATE TABLE work_queue
+CREATE TABLE git.work_queue
 (
     `repo_name` String,
     `scheduled` DateTime,

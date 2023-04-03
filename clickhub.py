@@ -19,8 +19,6 @@ sub_parser = parser.add_subparsers(dest='command')
 
 repo_name_parser = argparse.ArgumentParser(add_help=False)
 repo_name_parser.add_argument('--repo_name', type=str, required=True)
-repo_name_parser.add_argument('--keep_files', action='store_true', required=False, help='keep generated tsv files on '
-                                                                                        'completion')
 
 priority_parser = argparse.ArgumentParser(add_help=False)
 priority_parser.add_argument('--priority', type=int, default=0)
@@ -28,10 +26,14 @@ priority_parser.add_argument('--priority', type=int, default=0)
 schedule = sub_parser.add_parser('schedule', parents=[repo_name_parser, priority_parser],
                                  help='Schedule a repo for import (add queue to queue)')
 
-worker = sub_parser.add_parser('start_worker', help='start a worker to consume from queue')
+keep_files_parser = argparse.ArgumentParser(add_help=False)
+keep_files_parser.add_argument('--keep_files', action='store_true', required=False, help='keep generated tsv files on '
+                                                                                         'completion')
+
+worker = sub_parser.add_parser('start_worker', help='start a worker to consume from queue', parents=[keep_files_parser])
 worker.add_argument('--id', type=str, default=str(uuid.uuid4()))
 
-sub_parser.add_parser('import', parents=[repo_name_parser], help='import a repo')
+sub_parser.add_parser('import', parents=[repo_name_parser, keep_files_parser], help='import a repo')
 
 sub_parser.add_parser('update_all_repos', parents=[priority_parser], help='schedule all current repos for update')
 
@@ -40,8 +42,6 @@ bulk_scheduler = sub_parser.add_parser('bulk_schedule', parents=[priority_parser
 bulk_scheduler.add_argument('--file', type=str, default='repos.txt')
 
 args = parser.parse_args()
-
-
 
 
 def load_config(path):
