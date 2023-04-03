@@ -78,6 +78,15 @@ Schedules a job for all current repositories. Determined by setting `repo_lookup
 python clickhub.py update_all_repos
 ```
 
+### Bulk schedule repos
+
+Bulk schedules repos based on lines in file. Repos should be line delimited. Top 5000 repos is provided in 
+[repos.txt](repos.txt).
+
+```bash
+python clickhub.py bulk_schedule --file repos.txt
+```
+
 ## Config
 
 See [config.yml](config.yml)
