@@ -11,6 +11,7 @@ import git
 from botocore.client import BaseClient
 from git import Repo, InvalidGitRepositoryError
 from clickhouse import DataType, RepoClickHouseClient
+from datetime import datetime
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -110,22 +111,33 @@ def clickhouse_import(repo_path: str, repo_name: str, client: RepoClickHouseClie
     return client_insert.returncode
 
 
-def import_repo(client: RepoClickHouseClient, repo_name: str, data_cache: str, types: list[DataType]):
+def _remove_file(file_path):
+    if not os.path.exists(file_path):
+        logging.warning(f'[{file_path}] does not exist. Cannot remove.')
+    try:
+        os.remove(file_path)
+    except:
+        logging.exception(f'unable to remove [{file_path}]')
+
+
+def import_repo(client: RepoClickHouseClient, repo_name: str, data_cache: str, types: list[DataType], keep_files=False):
     if not is_valid_repo(repo_name):
-        raise Exception(f'cannot find remote repo {repo_name}')
+        raise Exception(f'cannot find remote repo [{repo_name}]')
     repo_path = update_repo(data_cache, repo_name)
     if not git_import(repo_path, []):
-        raise Exception(f'unable to git-import {repo_name}')
+        raise Exception(f'unable to git-import [{repo_name}]')
     for data_type in types:
         if clickhouse_import(repo_path, repo_name, client, data_type) != 0:
-            raise Exception(f'unable to import {data_type.name} for {repo_name} to ClicKHouse')
+            raise Exception(f'unable to import [{data_type.name}] for [{repo_name}] to ClicKHouse')
+        if not keep_files:
+            _remove_file(os.path.join(repo_path, f'{data_type}.tsv'))
 
 
 def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, data_cache: str, task_table: str,
-                   worker_id: str, types: list[DataType], sleep_time=10):
+                   worker_id: str, types: list[DataType], sleep_time=10, keep_files=False):
     logging.info(f"Starting worker {worker_id}")
     while True:
-        logging.info('polling for messages')
+        logging.info(f'{worker_id} polling for messages')
         # replace with keeper map in future once we have ALTER TABLE transactions and can guarantee workers wont
         # take same job - we can also then use priority - currently ignored
         messages = sqs.receive_message(
@@ -145,15 +157,27 @@ def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str
             logging.info(f'job received with id {message["MessageId"]}')
             body = json.loads(message['Body'])
             repo_name = body['repo_name']
-            ##TODO - check its been scheduled. ignore and delete if not.
+            # Note: we update only if another worker has not added as 1. same repo should not be concurrently processed
+            # 2. failed jobs are deleted from sqs. This should never happen and is an exception case.
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
-                import_repo(client, repo_name, data_cache, types)
+                job = client.query_row(f"SELECT repo_name, scheduled, priority, worker_id, started_time "
+                                       f"FROM {task_table} WHERE repo_name='{repo_name}'")
+                if job is None:
+                    raise Exception(f'repo {repo_name} is not scheduled. ignoring.')
+                # test if already started
+                if job[3] != '':
+                    raise Exception(f'repo [{repo_name}] is already owned by worker [{job[3]}]. ignoring.')
+                scheduled_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # change to an insert in job processing table
+                client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = {worker_id}, "
+                                 f"started_time = '{scheduled_time}' WHERE repo_name = {repo_name}")
+                import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
             except Exception:
-                logging.exception(f'{str(worker_id)} failed on repo {repo_name}')
+                logging.exception(f'[{str(worker_id)}] failed on repo [{repo_name}]')
             finally:
                 # always release the job so it can be scheduled
                 sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=message['ReceiptHandle'])
                 client.query_row(f"DELETE FROM {task_table} WHERE repo_name='{repo_name}'")
-        logging.info(f'{str(worker_id)} sleeping {sleep_time}s till next poll')
+        logging.info(f'{worker_id} sleeping {sleep_time}s till next poll')
         time.sleep(sleep_time)

@@ -7,7 +7,7 @@ from clickhouse import RepoClickHouseClient
 from repo.importer import is_valid_repo
 
 
-def _is_job_scheduled(client: RepoClickHouseClient, task_table, repo_name):
+def is_job_scheduled(client: RepoClickHouseClient, task_table, repo_name):
     response = client.query_row(f"SELECT * FROM {task_table} WHERE repo_name='{repo_name}'")
     if response is not None:
         return True
@@ -20,12 +20,12 @@ def schedule_repo_job(client: RepoClickHouseClient, sqs: BaseClient, queue_url: 
                       priority: int):
     if not is_valid_repo(repo_name):
         raise Exception(f'cannot find remote repo {repo_name}')
-    if _is_job_scheduled(client, task_table, repo_name):
+    if is_job_scheduled(client, task_table, repo_name):
         raise Exception(f'job already scheduled for {repo_name}')
     scheduled_time = int(time.time())
     job_id = f'{repo_name}-{scheduled_time}'
-    client.insert_row(task_table, ['repo_name', 'scheduled', 'priority'],
-                      [repo_name, scheduled_time, priority])
+    client.insert_row(task_table, ['repo_name', 'scheduled', 'priority', 'worker_id', 'started_time'],
+                      [repo_name, scheduled_time, priority, '', 0])
     # replace with keeper map in future once we have ALTER TABLE transactions and can guarantee workers wont
     # take same job
     try:
@@ -85,7 +85,7 @@ def schedule_all_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url:
     with open(filename, 'r') as repos:
         for repo_name in repos:
             repo_name = repo_name.strip()
-            if _is_job_scheduled(client, task_table, repo_name):
+            if is_job_scheduled(client, task_table, repo_name):
                 logging.warning(f'skipping {repo_name} as already scheduled')
                 continue
             if not is_valid_repo(repo_name):

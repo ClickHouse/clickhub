@@ -19,6 +19,8 @@ sub_parser = parser.add_subparsers(dest='command')
 
 repo_name_parser = argparse.ArgumentParser(add_help=False)
 repo_name_parser.add_argument('--repo_name', type=str, required=True)
+repo_name_parser.add_argument('--keep_files', action='store_true', required=False, help='keep generated tsv files on '
+                                                                                        'completion')
 
 priority_parser = argparse.ArgumentParser(add_help=False)
 priority_parser.add_argument('--priority', type=int, default=0)
@@ -109,7 +111,8 @@ if __name__ == '__main__':
             sys.exit(1)
     elif args.command == 'update_all_repos':
         try:
-            schedule_all_current_repos(client, sqs, queue.url, config['repo_lookup_table'], config['task_table'], args.priority)
+            schedule_all_current_repos(client, sqs, queue.url, config['repo_lookup_table'], config['task_table'],
+                                       args.priority)
         except Exception as e:
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)
@@ -119,11 +122,11 @@ if __name__ == '__main__':
             logging.fatal('unable to find clickhouse on PATH')
             sys.exit(1)
         if args.command == 'import':
-            import_repo(client, args.repo_name, config['data_cache'], types)
+            import_repo(client, args.repo_name, config['data_cache'], types, keep_files=args.keep_files)
         elif args.command == 'start_worker':
             # workers log to file based on id
             logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
                                 format='%(asctime)s %(levelname)s %(message)s', filename=f'worker-log-{args.id}.log',
                                 filemode='a')
             worker_process(client, sqs, queue.url, config['data_cache'], config['task_table'],
-                           args.id, types, config['sleep_time'])
+                           args.id, types, config['sleep_time'], keep_files=args.keep_files)

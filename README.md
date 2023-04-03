@@ -205,7 +205,6 @@ CREATE TABLE git.line_changes
     `repo_name`                  LowCardinality(String),
     `updated_at`                 DateTime MATERIALIZED now()
 ) ENGINE = ReplacingMergeTree
-PARTITION BY repo_name
 ORDER BY (repo_name, time, commit_hash, path, line_number_old, line_number_new)
 ```
 
@@ -214,7 +213,9 @@ CREATE TABLE work_queue
 (
     `repo_name` String,
     `scheduled` DateTime,
-    `priority` Int32
+    `priority` Int32,
+    `worker_id` String,
+    `started_time` DateTime,
 )
 ENGINE = KeeperMap('git_queue')
 PRIMARY KEY repo_name
