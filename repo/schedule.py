@@ -21,7 +21,7 @@ def queue_length(client: RepoClickHouseClient, task_table):
 
 
 # we assume scheduler is single threaded at the moment (pending KeeperMap transactions).
-# Note we could impose a limit here on jobs or new jobs. Priority also currently ignored.
+# Note we impose a limit here on jobs. Priority also currently ignored.
 def schedule_repo_job(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, task_table: str, repo_name: str,
                       priority: int, max_queue_length = sys.maxsize):
     if queue_length(client, task_table) > max_queue_length:
