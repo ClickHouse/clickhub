@@ -8,7 +8,7 @@ import boto3
 import yaml
 from clickhouse import ClickHouse, RepoClickHouseClient, DataType
 from repo.importer import import_repo, worker_process
-from repo.schedule import schedule_repo_job, schedule_all_current_repos, schedule_all_repos
+from repo.schedule import schedule_repo_job, schedule_all_current_repos, bulk_schedule_repos
 
 parser = argparse.ArgumentParser(description='github importer',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -94,7 +94,8 @@ if __name__ == '__main__':
     if args.command == 'schedule':
         logging.info(f'scheduling import of repo {args.repo_name}')
         try:
-            schedule_repo_job(client, sqs, queue.url, config['task_table'], args.repo_name, args.priority)
+            schedule_repo_job(client, sqs, queue.url, config['task_table'], args.repo_name, args.priority,
+                              max_queue_length=int(config['max_queue_length']))
         except Exception as e:
             logging.fatal(f'unable to schedule repo - {e}')
             sys.exit(1)
@@ -102,7 +103,8 @@ if __name__ == '__main__':
         logging.info(f'scheduling import of repos from file {args.file}')
         if os.path.exists(args.file) and os.path.isfile(args.file):
             try:
-                schedule_all_repos(client, sqs, queue.url, config['task_table'], args.file, args.priority)
+                bulk_schedule_repos(client, sqs, queue.url, config['task_table'], args.file, args.priority,
+                                    int(config['max_queue_length']))
             except Exception as e:
                 logging.fatal(f'unable to import repos from file {args.file} - {e}')
                 sys.exit(1)

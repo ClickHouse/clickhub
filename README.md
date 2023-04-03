@@ -106,6 +106,7 @@ task_table: 'git.work_queue'
 # sqs queue details
 queue_name: 'github.fifo'
 queue_region: 'eu-west-1'
+max_queue_length: 10000
 # period between worker polls
 sleep_time: 10
 # table on which we look up current repos

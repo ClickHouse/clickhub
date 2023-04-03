@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import time
 from botocore.client import BaseClient
 from clickhouse import RepoClickHouseClient
@@ -14,10 +15,17 @@ def is_job_scheduled(client: RepoClickHouseClient, task_table, repo_name):
     return False
 
 
+def queue_length(client: RepoClickHouseClient, task_table):
+    response = client.query_row(f"SELECT count() FROM {task_table}")
+    return int(response[0])
+
+
 # we assume scheduler is single threaded at the moment (pending KeeperMap transactions).
 # Note we could impose a limit here on jobs or new jobs. Priority also currently ignored.
 def schedule_repo_job(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, task_table: str, repo_name: str,
-                      priority: int):
+                      priority: int, max_queue_length = sys.maxsize):
+    if queue_length(client, task_table) > max_queue_length:
+        raise Exception(f'cannot schedule [{repo_name}]. Max queue size [{max_queue_length}] exceeded.')
     if not is_valid_repo(repo_name):
         raise Exception(f'cannot find remote repo {repo_name}')
     if is_job_scheduled(client, task_table, repo_name):
@@ -49,7 +57,7 @@ def schedule_repo_job(client: RepoClickHouseClient, sqs: BaseClient, queue_url: 
             MessageGroupId=repo_name
         )
         message_id = response['MessageId']
-        logging.info(f'scheduled job for repo {repo_name} with message {message_id}')
+        logging.info(f'scheduled job for repo [{repo_name}] with message [{message_id}]')
     except:
         # unblock other workers
         client.query_row(f"DELETE FROM {task_table} WHERE repo_name='{repo_name}'")
@@ -73,22 +81,27 @@ def schedule_all_current_repos(client: RepoClickHouseClient, sqs: BaseClient, qu
         statement = f"SELECT repo_name FROM {task_table} WHERE repo_name IN ({repos})"
         rows = client.query_rows(statement)
         currently_scheduled = [row[0] for row in rows]
-        logging.info(f'repos currently scheduled, will be ignored: {currently_scheduled}')
+        logging.info(f'repos currently scheduled, will be ignored: [{currently_scheduled}]')
         to_schedule = set(repo_batch) - set(currently_scheduled)
-        logging.info(f'scheduling: {to_schedule}')
+        logging.info(f'scheduling: [{to_schedule}]')
         for repo_name in list(to_schedule):
-            schedule_repo_job(client, sqs, queue_url, task_table, repo_name, priority)
+            try:
+                # no max size here. We schedule all.
+                schedule_repo_job(client, sqs, queue_url, task_table, repo_name, priority)
+            except:
+                logging.exception(f'unable to schedule repo [{repo_name}]')
 
 
-def schedule_all_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, task_table: str, filename: str,
-                      priority: int):
+def bulk_schedule_repos(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, task_table: str, filename: str,
+                        priority: int, max_queue_length: int):
     with open(filename, 'r') as repos:
         for repo_name in repos:
             repo_name = repo_name.strip()
             if is_job_scheduled(client, task_table, repo_name):
-                logging.warning(f'skipping {repo_name} as already scheduled')
+                logging.warning(f'skipping [{repo_name}] as already scheduled')
                 continue
             if not is_valid_repo(repo_name):
-                logging.warning(f'skipping {repo_name} as not valid')
+                logging.warning(f'skipping [{repo_name}] as not valid')
                 continue
-            schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority)
+            schedule_repo_job(client, sqs, queue_url, task_table, repo_name.strip(), priority,
+                              max_queue_length=max_queue_length)
