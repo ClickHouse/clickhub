@@ -129,7 +129,7 @@ def import_repo(client: RepoClickHouseClient, repo_name: str, data_cache: str, t
         raise Exception(f'unable to git-import [{repo_name}]')
     for data_type in types:
         if clickhouse_import(repo_path, repo_name, client, data_type) != 0:
-            raise Exception(f'unable to import [{data_type.name}] for [{repo_name}] to ClicKHouse')
+            raise Exception(f'unable to import [{data_type.name}] for [{repo_name}] to ClickHouse')
         if not keep_files:
             _remove_file(os.path.join(repo_path, f'{data_type.name}.tsv'))
 
