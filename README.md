@@ -135,7 +135,6 @@ CREATE TABLE git.commits
     `repo_name`      LowCardinality(String),
     `updated_at`     DateTime MATERIALIZED now()
 ) ENGINE = ReplacingMergeTree
-PARTITION BY repo_name
 ORDER BY (repo_name, time, hash)
 ```
 
@@ -167,7 +166,6 @@ CREATE TABLE git.file_changes
     `repo_name`             LowCardinality(String),
     `updated_at`            DateTime MATERIALIZED now()
 ) ENGINE = ReplacingMergeTree
-PARTITION BY repo_name
 ORDER BY (repo_name, time, commit_hash, path)
 SETTINGS index_granularity = 8192
 ```
