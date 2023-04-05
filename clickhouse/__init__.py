@@ -30,7 +30,9 @@ class RepoClickHouseClient:
                                                      password=clickhouse.password, port=clickhouse.port,
                                                      secure=clickhouse.secure,
                                                      connect_timeout=clickhouse.connect_timeout,
-                                                     **clickhouse.settings)
+                                                     settings={
+                                                        'keeper_map_strict_mode': 1
+                                                     })
         if not self._client.ping():
             raise Exception(f'unable to connect to cluster at {clickhouse.host}')
 

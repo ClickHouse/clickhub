@@ -1,4 +1,3 @@
-boto3==1.26.103
 botocore==1.29.103
 certifi==2022.12.7
 clickhouse-connect==0.5.18
