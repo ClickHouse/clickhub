@@ -157,7 +157,6 @@ def worker_process(client: RepoClickHouseClient, data_cache: str, task_table: st
         logging.info(f'{worker_id} polling for messages')
         repo_name = _claim_job(client, worker_id, task_table)
         if repo_name is not None:
-            logging.info(f'job received for repo {repo_name}')
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
                 import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
