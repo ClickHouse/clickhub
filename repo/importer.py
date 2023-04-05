@@ -172,7 +172,7 @@ def worker_process(client: RepoClickHouseClient, data_cache: str, task_table: st
             try:
                 logging.info(f'cleaning up job [{repo_name}]')
                 # always release the job so it can be scheduled
-                client.query_row(f"DELETE FROM {task_table} WHERE repo_name='{repo_name}'")
+                client.query_row(f"ALTER TABLE {task_table} DELETE WHERE repo_name='{repo_name}'")
             except:
                 logging.exception(f'unable to clean up job [{repo_name}]. Manually clean.')
         logging.info(f'{worker_id} sleeping {sleep_time}s till next poll')
