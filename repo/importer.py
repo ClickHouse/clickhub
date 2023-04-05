@@ -142,9 +142,18 @@ def _claim_job(client: RepoClickHouseClient, worker_id: str, task_table: str, re
         logging.info(f'attempting to claim {repo_name}')
         scheduled_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
+            # keeper map doesn't allow two threads to set here
             client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = '{worker_id}', "
                               f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}' AND worker_id = ''")
-            return repo_name
+            # this may either throw an exception if another worker gets there first OR return 0 rows if the
+            # job has already been processed and deleted or claimed successfully
+            claimed = client.query_row(f"SELECT count() FROM {task_table} WHERE worker_id='{worker_id}' "
+                                       f"AND repo_name = '{repo_name}'")
+            if claimed[0] == 1:
+                logging.info(f'[{worker_id}] claimed repo [{repo_name}]')
+                return repo_name
+            else:
+                logging.info(f'unable to claim repo [{repo_name}]. maybe already claimed.')
         except:
             logging.exception(f'unable to claim repo [{repo_name}]. maybe already claimed.')
     return None
