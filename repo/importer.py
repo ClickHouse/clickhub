@@ -146,7 +146,7 @@ def _claim_job(client: RepoClickHouseClient, worker_id: str, task_table: str, re
                               f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}'")
             return repo_name
         except:
-            logging.exception(f'unable to claim repo_name [{repo_name}]. maybe already claimed.')
+            logging.exception(f'unable to claim repo [{repo_name}]. maybe already claimed.')
     return None
 
 
@@ -170,6 +170,6 @@ def worker_process(client: RepoClickHouseClient, data_cache: str, task_table: st
                 # always release the job so it can be scheduled
                 client.query_row(f"DELETE FROM {task_table} WHERE repo_name='{repo_name}'")
             except:
-                logging.exception(f'unable to clean up job [{repo_name}]. It may be re-scheduled.')
+                logging.exception(f'unable to clean up job [{repo_name}]. Manually clean.')
         logging.info(f'{worker_id} sleeping {sleep_time}s till next poll')
         time.sleep(sleep_time)
