@@ -14,7 +14,7 @@ Note: repos are cloned locally. This can require significant disk space for a la
 - python3.10+
 - git - authenticated with ssh keys
 - clickhouse-client
-- sqs queue (fifo) - deduplicate on groupId. Ensure you are authenticated. i.e. via awscli and  `aws configure`.
+- ClickHouse instance with support for KeeperMap and `keeper_map_strict_mode`
 
 ## Installing
 
@@ -56,7 +56,7 @@ Caution: ensure this isn't being imported by a worker on the current machine. Th
 
 ### Schedule a repo
 
-Adds the repo to work queue (requires sqs queue).
+Adds the repo to work queue.
 
 ```bash
 python clickhub.py schedule --repo_name <name>
@@ -103,9 +103,7 @@ secure: true
 data_cache: '/opt/git_cache'
 # keeper map table to assist scheduling
 task_table: 'git.work_queue'
-# sqs queue details
-queue_name: 'github.fifo'
-queue_region: 'eu-west-1'
+# queue details
 max_queue_length: 10000
 # period between worker polls
 sleep_time: 10
