@@ -147,9 +147,8 @@ def _claim_job(client: RepoClickHouseClient, worker_id: str, task_table: str, re
                               f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}' AND worker_id = ''")
             # this may either throw an exception if another worker gets there first OR return 0 rows if the
             # job has already been processed and deleted or claimed successfully. So we check we have set and claimed.
-            claimed = client.query_row(f"SELECT count() FROM {task_table} WHERE worker_id='{worker_id}' "
-                                       f"AND repo_name = '{repo_name}'")
-            if claimed[0] == 1:
+            assigned_worker_id = client.query_row(f"SELECT worker_id FROM {task_table} WHERE repo_name = '{repo_name}'")
+            if assigned_worker_id[0] == worker_id:
                 logging.info(f'[{worker_id}] claimed repo [{repo_name}]')
                 return repo_name
             else:
