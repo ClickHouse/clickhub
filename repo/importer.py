@@ -146,7 +146,7 @@ def _claim_job(client: RepoClickHouseClient, worker_id: str, task_table: str, re
             client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = '{worker_id}', "
                               f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}' AND worker_id = ''")
             # this may either throw an exception if another worker gets there first OR return 0 rows if the
-            # job has already been processed and deleted or claimed successfully
+            # job has already been processed and deleted or claimed successfully. So we check we have set and claimed.
             claimed = client.query_row(f"SELECT count() FROM {task_table} WHERE worker_id='{worker_id}' "
                                        f"AND repo_name = '{repo_name}'")
             if claimed[0] == 1:
@@ -166,7 +166,6 @@ def worker_process(client: RepoClickHouseClient, data_cache: str, task_table: st
         logging.info(f'{worker_id} polling for messages')
         repo_name = _claim_job(client, worker_id, task_table)
         if repo_name is not None:
-            logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
                 import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
             except Exception:
