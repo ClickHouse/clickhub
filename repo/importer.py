@@ -143,7 +143,7 @@ def _claim_job(client: RepoClickHouseClient, worker_id: str, task_table: str, re
         scheduled_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
             client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = '{worker_id}', "
-                              f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}'")
+                              f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}' AND worker_id = ''")
             return repo_name
         except:
             logging.exception(f'unable to claim repo [{repo_name}]. maybe already claimed.')
