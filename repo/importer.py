@@ -158,8 +158,6 @@ def worker_process(client: RepoClickHouseClient, data_cache: str, task_table: st
         repo_name = _claim_job(client, worker_id, task_table)
         if repo_name is not None:
             logging.info(f'job received for repo {repo_name}')
-            # Note: we update only if another worker has not added as 1. same repo should not be concurrently processed
-            # 2. failed jobs are deleted from sqs. This should never happen and is an exception case.
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
                 import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
