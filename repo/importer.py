@@ -8,7 +8,6 @@ import sys
 import time
 from asyncio.subprocess import PIPE
 import git
-from botocore.client import BaseClient
 from git import Repo, InvalidGitRepositoryError
 from clickhouse import DataType, RepoClickHouseClient
 from datetime import datetime
@@ -20,14 +19,14 @@ def connect_repo(repo_name: str, repo_folder: str):
     logging.info(f'connecting to repo {repo_name} at {repo_folder}')
     if os.path.exists(repo_folder):
         if not os.path.isdir(repo_folder):
-            return Exception(f'{repo_folder} is not a folder')
+            return Exception(f'[{repo_folder}] is not a folder')
         try:
             return Repo(repo_folder)
         except InvalidGitRepositoryError:
             # clean up dir and re-clone
-            logging.error(f'unable to connect to repository {repo_name}')
+            logging.error(f'unable to connect to repository [{repo_name}]')
         os.rmdir(repo_folder)
-    logging.info(f'cloning repo {repo_name} to {repo_folder}')
+    logging.info(f'cloning repo [{repo_name}] to [{repo_folder}]')
     return git.Repo.clone_from(f'git@github.com:{repo_name}', repo_folder)
 
 
@@ -91,7 +90,7 @@ def git_import(repo_path, custom_params=[]):
     return rc == 0
 
 
-def clickhouse_import(repo_path: str, repo_name: str, client: RepoClickHouseClient, data_type: DataType):
+def clickhouse_import(client: RepoClickHouseClient, repo_path: str, repo_name: str, data_type: DataType):
     logging.info(f'handling {data_type.name} for {repo_name}')
     max_time = client.query_row(statement=f"SELECT max(time) FROM {data_type.table} WHERE repo_name='{repo_name}'")[0]
     logging.info(f'max time for {data_type.name} is {max_time}')
@@ -128,58 +127,47 @@ def import_repo(client: RepoClickHouseClient, repo_name: str, data_cache: str, t
     if not git_import(repo_path, []):
         raise Exception(f'unable to git-import [{repo_name}]')
     for data_type in types:
-        if clickhouse_import(repo_path, repo_name, client, data_type) != 0:
+        if clickhouse_import(client, repo_path, repo_name, data_type) != 0:
             raise Exception(f'unable to import [{data_type.name}] for [{repo_name}] to ClickHouse')
         if not keep_files:
             _remove_file(os.path.join(repo_path, f'{data_type.name}.tsv'))
 
 
-def worker_process(client: RepoClickHouseClient, sqs: BaseClient, queue_url: str, data_cache: str, task_table: str,
-                   worker_id: str, types: list[DataType], sleep_time=10, keep_files=False):
-    logging.info(f"Starting worker {worker_id}")
+def _claim_job(client: RepoClickHouseClient, worker_id: str, task_table: str, retries=2):
+    # find highest priority, oldest job thats not assigned - grab retries
+    jobs = client.query_rows(f"SELECT repo_name FROM {task_table} WHERE worker_id = '' ORDER BY priority DESC, "
+                             f"started_time ASC LIMIT {retries}")
+    for job in jobs:
+        repo_name = job[0]
+        logging.info(f'attempting to claim {repo_name}')
+        scheduled_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = '{worker_id}', "
+                              f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}'")
+            return repo_name
+        except:
+            logging.exception(f'unable to claim repo_name [{repo_name}]. maybe already claimed.')
+    return None
+
+
+def worker_process(client: RepoClickHouseClient, data_cache: str, task_table: str, worker_id: str,
+                   types: list[DataType], sleep_time=10, keep_files=False):
+    logging.info(f'starting worker {worker_id}')
     while True:
         logging.info(f'{worker_id} polling for messages')
-        # replace with keeper map in future once we have ALTER TABLE transactions and can guarantee workers wont
-        # take same job - we can also then use priority - currently ignored
-        messages = sqs.receive_message(
-            QueueUrl=queue_url,
-            AttributeNames=[
-                'All'
-            ],
-            MaxNumberOfMessages=1,
-            MessageAttributeNames=[
-                'All'
-            ],
-            VisibilityTimeout=4 * 60 * 60,
-            WaitTimeSeconds=10
-        )
-        if 'Messages' in messages:
-            message = messages['Messages'][0]
-            logging.info(f'job received with id {message["MessageId"]}')
-            body = json.loads(message['Body'])
-            repo_name = body['repo_name']
+        repo_name = _claim_job(client, worker_id, task_table)
+        if repo_name is not None:
+            logging.info(f'job received for repo {repo_name}')
             # Note: we update only if another worker has not added as 1. same repo should not be concurrently processed
             # 2. failed jobs are deleted from sqs. This should never happen and is an exception case.
             logging.info(f'{str(worker_id)} is handling repo {repo_name}')
             try:
-                job = client.query_row(f"SELECT repo_name, scheduled, priority, worker_id, started_time "
-                                       f"FROM {task_table} WHERE repo_name='{repo_name}'")
-                if job is None:
-                    raise Exception(f'repo {repo_name} is not scheduled. ignoring.')
-                # test if already started
-                if job[3] != '':
-                    raise Exception(f'repo [{repo_name}] is already owned by worker [{job[3]}]. ignoring.')
-                scheduled_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # change to an insert in job processing table
-                client.query_row(f"ALTER TABLE {task_table} UPDATE worker_id = '{worker_id}', "
-                                 f"started_time = '{scheduled_time}' WHERE repo_name = '{repo_name}'")
                 import_repo(client, repo_name, data_cache, types, keep_files=keep_files)
             except Exception:
                 logging.exception(f'[{str(worker_id)}] failed on repo [{repo_name}]')
             try:
                 logging.info(f'cleaning up job [{repo_name}]')
                 # always release the job so it can be scheduled
-                sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=message['ReceiptHandle'])
                 client.query_row(f"DELETE FROM {task_table} WHERE repo_name='{repo_name}'")
             except:
                 logging.exception(f'unable to clean up job [{repo_name}]. It may be re-scheduled.')

@@ -80,7 +80,7 @@ python clickhub.py update_all_repos
 
 ### Bulk schedule repos
 
-Bulk schedules repos based on lines in file. Repos should be line delimited. Top 5000 repos is provided in 
+Bulk schedules repos based on lines in file. Repos should be line delimited. 40,000 repos are provided in 
 [repos.txt](repos.txt).
 
 ```bash

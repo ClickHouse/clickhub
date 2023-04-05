@@ -4,7 +4,6 @@ import logging
 import os.path
 import sys
 import uuid
-import boto3
 import yaml
 from clickhouse import ClickHouse, RepoClickHouseClient, DataType
 from repo.importer import import_repo, worker_process
@@ -78,43 +77,30 @@ if __name__ == '__main__':
     if args.command != 'start_worker':
         logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
-    if args.command != 'import':
-        # import doesn't need sqs
-        sqs = boto3.client('sqs')
-        try:
-            queue = boto3.resource(
-                'sqs',
-                region_name=config['queue_region']
-            ).get_queue_by_name(QueueName=config['queue_name'])
-            pass
-        except sqs.exceptions.QueueDoesNotExist:
-            logging.fatal(f"queue {config['queue_name']} does not exist in region {config['queue_region']}")
-            sys.exit(1)
 
     if args.command == 'schedule':
         logging.info(f'scheduling import of repo {args.repo_name}')
         try:
-            schedule_repo_job(client, sqs, queue.url, config['task_table'], args.repo_name, args.priority,
+            schedule_repo_job(client, config['task_table'], args.repo_name, args.priority,
                               max_queue_length=int(config['max_queue_length']))
         except Exception as e:
             logging.fatal(f'unable to schedule repo - {e}')
             sys.exit(1)
     elif args.command == 'bulk_schedule':
-        logging.info(f'scheduling import of repos from file {args.file}')
+        logging.info(f'scheduling import of repos from file [{args.file}]')
         if os.path.exists(args.file) and os.path.isfile(args.file):
             try:
-                bulk_schedule_repos(client, sqs, queue.url, config['task_table'], args.file, args.priority,
+                bulk_schedule_repos(client, config['task_table'], args.file, args.priority,
                                     int(config['max_queue_length']))
             except Exception as e:
-                logging.fatal(f'unable to import repos from file {args.file} - {e}')
+                logging.fatal(f'unable to import repos from file [{args.file}] - {e}')
                 sys.exit(1)
         else:
-            logging.fatal(f'{args.file} does not exist or is not a file')
+            logging.fatal(f'[{args.file}] does not exist or is not a file')
             sys.exit(1)
     elif args.command == 'update_all_repos':
         try:
-            schedule_all_current_repos(client, sqs, queue.url, config['repo_lookup_table'], config['task_table'],
-                                       args.priority)
+            schedule_all_current_repos(client, config['repo_lookup_table'], config['task_table'], args.priority)
         except Exception as e:
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)
@@ -130,5 +116,5 @@ if __name__ == '__main__':
             logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
                                 format='%(asctime)s %(levelname)s %(message)s', filename=f'worker-log-{args.id}.log',
                                 filemode='a')
-            worker_process(client, sqs, queue.url, config['data_cache'], config['task_table'],
+            worker_process(client, config['data_cache'], config['task_table'],
                            args.id, types, config['sleep_time'], keep_files=args.keep_files)
