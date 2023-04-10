@@ -1,4 +1,3 @@
-/
 0-complexity/G8_testing
 00-Evan/shattered-pixel-dungeon
 01-edu/go-tests
