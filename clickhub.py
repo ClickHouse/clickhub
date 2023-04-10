@@ -14,29 +14,36 @@ parser = argparse.ArgumentParser(description='github importer',
 
 parser.add_argument('-c', '--config', default='config.yml', help='config')
 parser.add_argument('-d', '--debug', action='store_true', help='debug')
+
 sub_parser = parser.add_subparsers(dest='command')
 
 repo_name_parser = argparse.ArgumentParser(add_help=False)
 repo_name_parser.add_argument('--repo_name', type=str, required=True)
 
+task_table_parser = argparse.ArgumentParser(add_help=False)
+task_table_parser.add_argument('--task_table', type=str, required=False, default='git.work_queue')
+
 priority_parser = argparse.ArgumentParser(add_help=False)
 priority_parser.add_argument('--priority', type=int, default=0)
 
-schedule = sub_parser.add_parser('schedule', parents=[repo_name_parser, priority_parser],
+schedule = sub_parser.add_parser('schedule', parents=[repo_name_parser, priority_parser, task_table_parser],
                                  help='Schedule a repo for import (add queue to queue)')
 
 keep_files_parser = argparse.ArgumentParser(add_help=False)
 keep_files_parser.add_argument('--keep_files', action='store_true', required=False, help='keep generated tsv files on '
                                                                                          'completion')
 
-worker = sub_parser.add_parser('start_worker', help='start a worker to consume from queue', parents=[keep_files_parser])
+worker = sub_parser.add_parser('start_worker', help='start a worker to consume from queue', parents=[keep_files_parser,
+                                                                                                     task_table_parser])
 worker.add_argument('--id', type=str, default=str(uuid.uuid4()))
+worker.add_argument('--log_target', type=str, default='file', choices=['file', 'console'])
 
 sub_parser.add_parser('import', parents=[repo_name_parser, keep_files_parser], help='import a repo')
 
-sub_parser.add_parser('update_all_repos', parents=[priority_parser], help='schedule all current repos for update')
+sub_parser.add_parser('update_all_repos', parents=[priority_parser, task_table_parser],
+                      help='schedule all current repos for update')
 
-bulk_scheduler = sub_parser.add_parser('bulk_schedule', parents=[priority_parser],
+bulk_scheduler = sub_parser.add_parser('bulk_schedule', parents=[priority_parser, task_table_parser],
                                        help='bulk schedule repos')
 bulk_scheduler.add_argument('--file', type=str, default='repos.txt')
 
@@ -81,7 +88,7 @@ if __name__ == '__main__':
     if args.command == 'schedule':
         logging.info(f'scheduling import of repo {args.repo_name}')
         try:
-            schedule_repo_job(client, config['task_table'], args.repo_name, args.priority,
+            schedule_repo_job(client, args.task_table, args.repo_name, args.priority,
                               max_queue_length=int(config['max_queue_length']))
         except Exception as e:
             logging.fatal(f'unable to schedule repo - {e}')
@@ -90,7 +97,7 @@ if __name__ == '__main__':
         logging.info(f'scheduling import of repos from file [{args.file}]')
         if os.path.exists(args.file) and os.path.isfile(args.file):
             try:
-                bulk_schedule_repos(client, config['task_table'], args.file, args.priority,
+                bulk_schedule_repos(client, args.task_table, args.file, args.priority,
                                     int(config['max_queue_length']))
             except Exception as e:
                 logging.fatal(f'unable to import repos from file [{args.file}] - {e}')
@@ -100,7 +107,7 @@ if __name__ == '__main__':
             sys.exit(1)
     elif args.command == 'update_all_repos':
         try:
-            schedule_all_current_repos(client, config['repo_lookup_table'], config['task_table'], args.priority)
+            schedule_all_current_repos(client, config['repo_lookup_table'], args.task_table_parser, args.priority)
         except Exception as e:
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)
@@ -113,8 +120,12 @@ if __name__ == '__main__':
             import_repo(client, args.repo_name, config['data_cache'], types, keep_files=args.keep_files)
         elif args.command == 'start_worker':
             # workers log to file based on id
-            logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
-                                format='%(asctime)s %(levelname)s %(message)s', filename=f'worker-log-{args.id}.log',
-                                filemode='a')
-            worker_process(client, config['data_cache'], config['task_table'],
+            if args.log_target == 'file':
+                logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
+                                    format='%(asctime)s %(levelname)s %(message)s', filename=f'worker-log-{args.id}.log',
+                                    filemode='a')
+            else:
+                logging.basicConfig(encoding='utf-8', level=logging.DEBUG if args.debug else logging.INFO,
+                                    format='%(asctime)s %(levelname)s %(message)s')
+            worker_process(client, config['data_cache'], args.task_table,
                            args.id, types, config['sleep_time'], keep_files=args.keep_files)
