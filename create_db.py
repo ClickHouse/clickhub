@@ -149,7 +149,7 @@ PRIMARY KEY repo_name
 
 client.query_row(
     """
-CREATE TABLE git.task_queue
+CREATE TABLE git.new_queue
 (
     `repo_name` String,
     `scheduled` DateTime,

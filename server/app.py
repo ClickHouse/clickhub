@@ -1,7 +1,9 @@
-from flask import Flask, request, render_template
-from clickhouse import ClickHouse, RepoClickHouseClient
+from flask import Flask, request
 import argparse
-from clickhub import load_config, load_types
+
+#from clickhouse import ClickHouse, RepoClickHouseClient
+#from clickhub import load_config, load_types
+from repo import importer
 
 
 parser = argparse.ArgumentParser(
@@ -11,6 +13,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument("-c", "--config", default="config.yml", help="config")
 parser.add_argument("-d", "--debug", action="store_true", help="debug")
+parser.add_argument("-s", "--size", default=5, help="queue_size")
 
 args = parser.parse_args()
 
@@ -33,9 +36,13 @@ app = Flask(__name__)
 @app.get("/add_new_repo")
 def process():
     repo = request.args.get("repo")
-    max_queue_size = 5
 
-    queue_size = client.query_row("SELECT COUNT(repo_name) FROM work_queue")
+    if not importer.is_valid_repo(repo):
+        return "BAD REQUEST", 400
+    
+    max_queue_size = args.size
+
+    queue_size = client.query_row("SELECT COUNT(repo_name) FROM new_queue")
     if queue_size == max_queue_size:
         return "QUEUE IS FULL", 403
 
@@ -46,7 +53,7 @@ def process():
         return "ALREADY_PROCESSED", 200
 
     repos_in_queue = client.query_row(
-        f"SELECT COUNT(repo_name) FROM work_queue WHERE repo_name = {repo}"
+        f"SELECT COUNT(repo_name) FROM new_queue WHERE repo_name = {repo}"
     )
     if repos_in_queue >= 0:
         return "ALREADY_PROCESSING", 200

@@ -14,3 +14,4 @@ six==1.16.0
 smmap==5.0.0
 urllib3==1.26.15
 zstandard==0.20.0
+flask==2.2.2
