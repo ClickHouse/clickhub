@@ -1,6 +1,5 @@
 from flask import Flask, request
 import argparse
-import datetime
 from clickhouse import ClickHouse, RepoClickHouseClient
 from clickhub import load_config, load_types
 from repo import importer
@@ -40,21 +39,21 @@ def process():
     if not importer.is_valid_repo(repo):
         return "BAD REQUEST", 400
     
-    repos_in_db = client.query_row(f"SELECT COUNT(repo_name) FROM commits WHERE repo_name = {repo}")
-    if repos_in_db >= 0:
+    repos_in_db = client.query_row(f"SELECT COUNT(repo_name) FROM git.commits WHERE repo_name = '{repo}'")
+    if repos_in_db[0] >= 0:
         return "ALREADY_PROCESSED", 200
     
-    repos_in_queue = client.query_row(f"SELECT COUNT(repo_name) FROM new_queue WHERE repo_name = {repo}")
-    if repos_in_queue >= 0:
+    repos_in_queue = client.query_row(f"SELECT COUNT(repo_name) FROM git.new_queue WHERE repo_name = '{repo}'")
+    if repos_in_queue[0] >= 0:
         return "ALREADY_PROCESSING", 200
     
     max_queue_size = args.size
 
-    queue_size = client.query_row("SELECT COUNT(repo_name) FROM new_queue")
+    queue_size = client.query_row("SELECT COUNT(repo_name) FROM git.new_queue")
     if queue_size == max_queue_size:
         return "QUEUE IS FULL", 403
 
-    client.insert_row("git.new_queue", "repo_name", repo)
+    client.query_row(f"INSERT INTO git.new_queue (repo_name) VALUES ('{repo}')")
 
     return "OK", 201
 
