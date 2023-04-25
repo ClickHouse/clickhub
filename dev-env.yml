@@ -1,0 +1,17 @@
+# clickhouse details
+host: 'p62zibzuv9.eu-west-1.aws.clickhouse-staging.com'
+port: 8443
+native_port: 9440
+username: default
+password: 'n.xkN09JWw364'
+secure: true
+# location to clone repos
+data_cache: '/opt/git_cache'
+# keeper map table to assist scheduling
+task_table: 'git.work_queue'
+# queue details
+max_queue_length: 10000
+# period between worker polls
+sleep_time: 10
+# table on which we look up current repos
+repo_lookup_table: 'git.commits'
