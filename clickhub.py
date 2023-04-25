@@ -40,8 +40,9 @@ worker.add_argument('--log_target', type=str, default='file', choices=['file', '
 
 sub_parser.add_parser('import', parents=[repo_name_parser, keep_files_parser], help='import a repo')
 
-sub_parser.add_parser('update_all_repos', parents=[priority_parser, task_table_parser],
+update_all_parser = sub_parser.add_parser('update_all_repos', parents=[priority_parser, task_table_parser],
                       help='schedule all current repos for update')
+update_all_parser.add_argument('--limit', type=int, default=50000)
 
 bulk_scheduler = sub_parser.add_parser('bulk_schedule', parents=[priority_parser, task_table_parser],
                                        help='bulk schedule repos')
@@ -107,7 +108,7 @@ if __name__ == '__main__':
             sys.exit(1)
     elif args.command == 'update_all_repos':
         try:
-            schedule_all_current_repos(client, config['repo_lookup_table'], args.task_table, args.priority)
+            schedule_all_current_repos(client, config['repo_lookup_table'], args.task_table, args.priority, limit=args.limit)
         except Exception as e:
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)
