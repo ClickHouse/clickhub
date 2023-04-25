@@ -107,7 +107,7 @@ if __name__ == '__main__':
             sys.exit(1)
     elif args.command == 'update_all_repos':
         try:
-            schedule_all_current_repos(client, config['repo_lookup_table'], args.task_table_parser, args.priority)
+            schedule_all_current_repos(client, config['repo_lookup_table'], args.task_table, args.priority)
         except Exception as e:
             logging.fatal(f'unable to update all repos - {e}')
             sys.exit(1)
