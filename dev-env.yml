@@ -3,7 +3,7 @@ host: 'p62zibzuv9.eu-west-1.aws.clickhouse-staging.com'
 port: 8443
 native_port: 9440
 username: default
-password: 'n.xkN09JWw364'
+password: ''
 secure: true
 # location to clone repos
 data_cache: '/opt/git_cache'
