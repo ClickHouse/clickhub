@@ -6,6 +6,12 @@ from clickhouse import RepoClickHouseClient
 from repo.importer import is_valid_repo
 
 
+class NoRepo(Exception):
+    pass
+
+class AlreadyScheduled(Exception):
+    pass
+
 def is_job_scheduled(client: RepoClickHouseClient, task_table, repo_name):
     response = client.query_row(f"SELECT * FROM {task_table} WHERE repo_name='{repo_name}'")
     if response is not None:
@@ -25,7 +31,9 @@ def schedule_repo_job(client: RepoClickHouseClient, task_table: str, repo_name: 
     if queue_length(client, task_table) > max_queue_length:
         raise Exception(f'cannot schedule [{repo_name}]. Max queue size [{max_queue_length}] exceeded.')
     if not is_valid_repo(repo_name):
-        raise Exception(f'cannot find remote repo [{repo_name}]')
+        raise NoRepo(f'cannot find remote repo {repo_name}')
+    if is_job_scheduled(client, task_table, repo_name):
+        raise AlreadyScheduled(f'job already scheduled for {repo_name}')
     scheduled_time = int(time.time())
     try:
         client.insert_row(task_table, ['repo_name', 'scheduled', 'priority', 'worker_id', 'started_time'],
