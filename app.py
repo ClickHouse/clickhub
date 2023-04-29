@@ -58,15 +58,6 @@ def process():
     if repos_in_db[0] >= 0:
         return "ALREADY_PROCESSED", 200
     
-    try:
-        schedule.schedule_repo_job(client, sqs, queue.url, args.queue_name, repo, 1) 
-    except schedule.AlreadyScheduled:
-        return "ALREADY_PROCESSING", 200
-    
-    #-----------------
-    repos_in_queue = client.query_row(f"SELECT COUNT(repo_name) FROM git.new_queue WHERE repo_name = '{repo}'")
-    if repos_in_queue[0] >= 0:
-        return "ALREADY_PROCESSING", 200
     
     max_queue_size = args.size
 
@@ -74,9 +65,11 @@ def process():
     if queue_size == max_queue_size:
         return "QUEUE IS FULL", 403
 
-    client.query_row(f"INSERT INTO git.new_queue (repo_name) VALUES ('{repo}')")
-    #--------------------
-
+    try:
+        schedule.schedule_repo_job(client, sqs, queue.url, args.queue_name, repo, 1) 
+    except schedule.AlreadyScheduled:
+        return "ALREADY_PROCESSING", 200
+    
     return "OK", 201
 
 if __name__ == '__main__':

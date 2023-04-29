@@ -34,8 +34,8 @@ client.query_row(types[1][3])
 client.query_row(types[2][3])
 
 client.query_row(
-    """
-CREATE TABLE git.work_queue
+    f"""
+CREATE TABLE {config["task_table"]}
 (
     `repo_name` String,
     `scheduled` DateTime,
@@ -50,8 +50,8 @@ PRIMARY KEY repo_name
 )
 
 client.query_row(
-    """
-CREATE TABLE git.new_queue
+    f"""
+CREATE TABLE {config["clone_table"]}
 (
     `repo_name` String,
     `scheduled` DateTime,
