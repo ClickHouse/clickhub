@@ -20,13 +20,19 @@
     },
     {
       "name":"work_queue",
+      "table":"git.work_queue",
+      "statement":"",
+      "schema":""
+    },
+    {
+      "name":"new_queue",
       "table":"git.new_queue",
       "statement":"",
       "schema":""
     },
     {
-      "name":"work_queue",
-      "table":"git.new_queue",
+      "name":"github_events",
+      "table":"git.github_events",
       "statement":"",
       "schema":""
     }
