@@ -29,7 +29,7 @@ client = RepoClickHouseClient(clickhouse)
 
 client.query_row("CREATE DATABASE IF NOT EXISTS git")
 
-for i in range(3): 
+for i in range(3):
     client.query_row(types[i].statement)
 
 client.query_row(
