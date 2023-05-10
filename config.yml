@@ -9,6 +9,10 @@ secure: true
 data_cache: '/opt/git_cache'
 # queue details
 max_queue_length: 10000
+# keeper map table to assist scheduling
+task_table: 'git.work_queue'
+# table to clone repos
+clone_table: 'git.new_queue'
 # period between worker polls
 sleep_time: 10
 # table on which we look up current repos
