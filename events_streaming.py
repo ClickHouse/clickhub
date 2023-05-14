@@ -27,14 +27,20 @@ clickhouse = ClickHouse(
 client = RepoClickHouseClient(clickhouse)
 
 
-
 if __name__ == "__main__":
     repo_names = client.query_rows("SELECT DISTINCT repo_name FROM git.commits")
     repos = [repo[0].split("/") for repo in repo_names]
-    #print(repos)
+    # print(repos)
 
     for owner, repo in repos:
-        row_data = pull_data(owner, repo)
-        #print(row_data)
+        url = f"https://api.github.com/repos/{owner}/{repo}/events"
+        row_data, next_link, f = pull_data(url)
         data = parse_data(row_data)
-        push_data(client, "event_type", data)
+        #print(data)
+        #push_data(client, "event_type", data)
+
+        while f:
+            row_data, next_link, f = pull_data(next_link)
+            data = parse_data(row_data)
+            print(data)
+            #push_data()
