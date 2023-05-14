@@ -1,5 +1,6 @@
 import requests
 import json
+from multiprocessing import Process, Lock
 
 
 def parse_link(string):
@@ -12,7 +13,8 @@ def parse_link(string):
         return "", False
 
 def pull_data(url):
-    data = requests.get(url)
+    # User access token requests are subject to a higher limit of 15,000 requests per hour
+    data = requests.get(url, params={"per_page":100}, headers={'Authorization':"Bearer <Your token>"})
 
     next_link = ""
     f = False
@@ -24,14 +26,21 @@ def pull_data(url):
 
 def get_value(data, path):
     for p in path:
-        data = data[p]
+        # not all responces have all fields
+        try:
+            data = data[p]
+        except:
+            continue
     return data
 
 def parse_data(data):
     data_list = json.loads(data)
 
     structure = {"event_type":["type"],
-                 "actor_login":["actor", "login"]}
+                 "actor_login":["actor", "login"],
+                 "repo_name":["repo", "name"],
+                 "created_at":["created_at"],
+                 "action":["payload", "action"]}
     res_data = {}
 
     for column in structure.keys():

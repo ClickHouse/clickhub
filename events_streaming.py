@@ -42,5 +42,4 @@ if __name__ == "__main__":
         while f:
             row_data, next_link, f = pull_data(next_link)
             data = parse_data(row_data)
-            print(data)
             #push_data()
