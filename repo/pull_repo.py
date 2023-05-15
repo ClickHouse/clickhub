@@ -1,6 +1,6 @@
 import requests
 import json
-from multiprocessing import Process, Lock
+import threading
 
 
 def parse_link(string):
@@ -30,7 +30,7 @@ def get_value(data, path):
         try:
             data = data[p]
         except:
-            continue
+            data = None
     return data
 
 def parse_data(data):
@@ -54,15 +54,21 @@ def parse_data(data):
 
     return res_data
 
-def collect_data():
-    pass
+def collect_data(lock, queue, data):
+    lock.acquire()
 
+    try: 
+        queue.append(data)
+    finally:
+        lock.release()
 
-def push_data(client, column, data):
-    client.insert_row("git.github_events", column, data)
+def push_data(lock, client, queue, max_size):
+    lock.acquire()
 
-
-# result = pull_data("0Kee-Team", "WatchAD")
-# data = parse_data(result)
-
-# push_data("event_type", data)
+    try:
+        if len(queue) >= max_size:
+            columns, values = queue[0].keys(), [x.values() for x in queue]
+            client.insert("git.github_events", columns, values)
+            queue
+    finally:
+        lock.release()
