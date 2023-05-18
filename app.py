@@ -3,8 +3,6 @@ import argparse
 from clickhouse import ClickHouse, RepoClickHouseClient
 from clickhub import load_config, load_types
 from repo import importer, schedule
-import boto3
-import sys
 
 
 parser = argparse.ArgumentParser(

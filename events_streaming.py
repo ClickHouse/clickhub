@@ -48,7 +48,7 @@ def main():
     repo_names = client.query_rows("SELECT DISTINCT repo_name FROM git.commits")
     repos = [repo[0].split("/") for repo in repo_names]
 
-    queue = []
+    queue = {}
     lock = threading.Lock()
 
     t1 = threading.Thread(target=events_streaming, args=(repos, lock, queue))

@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+from datetime import datetime
 
 
 def parse_link(string):
@@ -27,13 +28,13 @@ def pull_data(url):
     return data.text, next_link, f
 
 
-def get_value(data, path):
+def get_value(data, path, default_value):
     for p in path:
         # not all responces have all fields
         try:
             data = data[p]
         except:
-            data = None
+            data = default_value
     return data
 
 
@@ -41,19 +42,21 @@ def parse_data(data):
     data_list = json.loads(data)
 
     structure = {
-        "event_type": ["type"],
-        "actor_login": ["actor", "login"],
-        "repo_name": ["repo", "name"],
-        "created_at": ["created_at"],
-        "action": ["payload", "action"],
+        "event_type": (["type"], 0),
+        "actor_login": (["actor", "login"], ""),
+        "repo_name": (["repo", "name"], ""),
+        "created_at": (["created_at"], ""),
+        "action": (["payload", "action"], ""),
     }
     res_data = {}
 
     for column in structure.keys():
         res_list = []
         for element in data_list:
-            path = structure[column]
-            res = get_value(element, path)
+            path = structure[column][0]
+            res = get_value(element, path, structure[column][1])
+            if column == "created_at":
+                res = datetime.strptime(res, "%Y-%m-%dT%H:%M:%SZ")
             res_list.append(res)
 
         res_data[column] = res_list
@@ -65,7 +68,11 @@ def collect_data(lock, queue, data):
     lock.acquire()
 
     try:
-        queue.append(data)
+        for field in data.keys():
+            try:
+                queue[field] += data[field]
+            except:
+                queue[field] = data[field]
     finally:
         lock.release()
 
@@ -77,10 +84,11 @@ def push_data(lock, client, queue, max_size):
         lock.acquire()
 
         try:
-            print(len(queue))
-            if len(queue) >= max_size:
-                columns, values = queue[0].keys(), [x.values() for x in queue]
-                client.insert_row("git.github_events", columns, values)
+            # print(len(queue[list(queue.keys())[0]]))
+            if len(queue[list(queue.keys())[0]]) >= max_size:
+                columns = list(queue.keys())
+                rows = [z for z in zip(*queue.values())]
+                client.insert_rows("git.github_events", columns, rows)
                 queue.clear()
         finally:
             lock.release()
