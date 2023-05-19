@@ -29,16 +29,24 @@ clickhouse = ClickHouse(
 )
 client = RepoClickHouseClient(clickhouse)
 
+# counts request rete
+count = 0
+
 
 def events_streaming(repos, lock, queue):
+    global count
     for owner, repo in repos:
         url = f"https://api.github.com/repos/{owner}/{repo}/events"
         row_data, next_link, f = pull_data(url)
         data = parse_data(row_data)
         collect_data(lock, queue, data)
 
+        count += 1
+
         while f:
             row_data, next_link, f = pull_data(next_link)
+            count += 1
+            print(count)
             data = parse_data(row_data)
             collect_data(lock, queue, data)
 

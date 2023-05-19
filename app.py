@@ -46,7 +46,7 @@ def process():
     repos_in_db = client.query_row(
         f"SELECT COUNT(repo_name) FROM git.commits WHERE repo_name = '{repo}'"
     )
-    if repos_in_db[0] >= 0:
+    if repos_in_db[0] > 0:
         return "ALREADY_PROCESSED", 200
 
     try:

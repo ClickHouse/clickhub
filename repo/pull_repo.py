@@ -2,6 +2,7 @@ import requests
 import json
 import time
 from datetime import datetime
+import os
 
 
 def parse_link(string):
@@ -14,10 +15,20 @@ def parse_link(string):
         return "", False
 
 
+def get_token():
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise Exception("No token in env")
+
+    return token
+
+
 def pull_data(url):
     # User access token requests are subject to a higher limit of 15,000 requests per hour
     data = requests.get(
-        url, params={"per_page": 100}, headers={"Authorization": "Bearer <Your token>"}
+        url,
+        params={"per_page": 100},
+        headers={"Authorization": f"Bearer {get_token()}"},
     )
     next_link = ""
     f = False
@@ -45,8 +56,9 @@ def parse_data(data):
         "event_type": (["type"], 0),
         "actor_login": (["actor", "login"], ""),
         "repo_name": (["repo", "name"], ""),
-        "created_at": (["created_at"], ""),
+        "created_at": (["created_at"], "1970-01-01T00:00:00Z"),
         "action": (["payload", "action"], ""),
+        "number": (["payload", "issue", "number"], 0),
     }
     res_data = {}
 

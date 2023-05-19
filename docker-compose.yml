@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  app:
+    build: 
+      dockerfile: ./Dockerfile_app
+    ports:
+      - "8000:5000"
+    environment:
+    # GITHUB_TOKEN should be in .env file
+      - GITHUB_TOKEN={GITHUB_TOKEN}
+  clickhub:
+    build: 
+      dockerfile: ./Dockerfile_git
+  events:
+    build: 
+      dockerfile: ./Dockerfile_events
+    environment:
+      - GITHUB_TOKEN={GITHUB_TOKEN}
