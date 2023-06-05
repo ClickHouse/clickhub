@@ -82,15 +82,12 @@ def get_token():
     return token
 
 def is_valid_repo(repo_name):
-    url = f"https://api.github.com/repos/{repo_name}/events"
-   
-    data = requests.get(
-        url, headers={"Authorization": f"Bearer {get_token()}"}
-    )
-    if data.status_code == 200:
-        return True
-    return False
-
+    g = git.cmd.Git()
+    try:
+        g.ls_remote('-h', f'git@github.com:{repo_name}')
+    except:
+        return False
+    return True
 
 def git_import(repo_path, custom_params=[]):
     logging.info(f'generating git history at {repo_path}')

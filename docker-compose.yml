@@ -16,3 +16,4 @@ services:
       dockerfile: ./Dockerfile_events
     environment:
       - GITHUB_TOKEN={GITHUB_TOKEN}
+      

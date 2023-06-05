@@ -5,6 +5,18 @@ from datetime import datetime
 import os
 
 
+class EmptyResponse(Exception):
+    pass
+
+
+class ServiceUnavailable(Exception):
+    pass
+
+
+class ForbiddenException(Exception):
+    pass
+
+
 def parse_link(string):
     data = string.split()
     next_link = data[0][1:-2]
@@ -23,20 +35,37 @@ def get_token():
     return token
 
 
-def pull_data(url):
+def pull_data(url, etag=None):
     # User access token requests are subject to a higher limit of 15,000 requests per hour
+    headers = {"Authorization": f"Bearer {get_token()}"}
+
+    if etag:
+        headers["ETag"] = etag
+
     data = requests.get(
         url,
         params={"per_page": 100},
-        headers={"Authorization": f"Bearer {get_token()}"},
+        headers=headers,
     )
     next_link = ""
     f = False
 
-    if "Link" in data.headers.keys():
-        next_link, f = parse_link(data.headers["Link"])
+    if data.status_code == 200:
+        etag = data.headers["ETag"]
 
-    return data.text, next_link, f
+        if "Link" in data.headers.keys():
+            next_link, f = parse_link(data.headers["Link"])
+
+        return data.text, next_link, f, etag
+
+    if data.status_code == 304:
+        raise EmptyResponse
+    elif data.status_code == 403:
+        raise ForbiddenException
+    elif data.status_code == 503:
+        raise ServiceUnavailable
+
+    raise Exception(f"Unknown error code {data.status_code}")
 
 
 def get_value(data, path, default_value):
@@ -45,7 +74,11 @@ def get_value(data, path, default_value):
         try:
             data = data[p]
         except:
-            data = default_value
+            return default_value
+
+    if data is None:
+        return default_value
+
     return data
 
 
@@ -57,8 +90,10 @@ def parse_data(data):
         "actor_login": (["actor", "login"], ""),
         "repo_name": (["repo", "name"], ""),
         "created_at": (["created_at"], "1970-01-01T00:00:00Z"),
+        # "updated_at": (["payload", "pull_request", "updated_at"], "1970-01-01T00:00:00Z"),
+        # "merged_at": (["payload", "pull_request", "merged_at"], "1970-01-01T00:00:00Z"),
         "action": (["payload", "action"], ""),
-        "number": (["payload", "issue", "number"], 0),
+        # "number": (["payload", "issue", "number"], 0),
     }
     res_data = {}
 
@@ -67,7 +102,7 @@ def parse_data(data):
         for element in data_list:
             path = structure[column][0]
             res = get_value(element, path, structure[column][1])
-            if column == "created_at":
+            if column == "created_at" or column == "merged_at":
                 res = datetime.strptime(res, "%Y-%m-%dT%H:%M:%SZ")
             res_list.append(res)
 
