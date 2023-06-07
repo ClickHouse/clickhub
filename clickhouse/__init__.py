@@ -47,8 +47,8 @@ class RepoClickHouseClient:
     def query_rows(self, statement):
         return self._client.query(statement).result_set
 
-    def insert_rows(self, table, columns, data):
-        self._client.insert(table, data, columns)
+    def insert_rows(self, table, columns, data, **kwargs):
+        self._client.insert(table, data, columns, **kwargs)
 
     def close(self):
         self._client.close()

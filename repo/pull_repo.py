@@ -1,6 +1,5 @@
 import requests
 import json
-import time
 from datetime import datetime
 import os
 
@@ -15,6 +14,9 @@ class ServiceUnavailable(Exception):
 
 class ForbiddenException(Exception):
     pass
+
+
+batch = {}
 
 
 def parse_link(string):
@@ -111,31 +113,16 @@ def parse_data(data):
     return res_data
 
 
-def collect_data(lock, queue, data):
-    lock.acquire()
+def collect_data(queue, data, max_size):
+    global batch
 
-    try:
-        for field in data.keys():
-            try:
-                queue[field] += data[field]
-            except:
-                queue[field] = data[field]
-    finally:
-        lock.release()
+    for column in data.keys():
+        a = column
+        if column in batch.keys():
+            batch[column].append(data[column])
+        else:
+            batch[column] = data[column]
 
-
-def push_data(lock, client, queue, max_size):
-    while True:
-        time.sleep(10)
-
-        lock.acquire()
-
-        try:
-            # print(len(queue[list(queue.keys())[0]]))
-            if len(queue[list(queue.keys())[0]]) >= max_size:
-                columns = list(queue.keys())
-                rows = [z for z in zip(*queue.values())]
-                client.insert_rows("git.github_events", columns, rows)
-                queue.clear()
-        finally:
-            lock.release()
+    if len(batch[a]) >= max_size:
+        queue.add(batch)
+        batch = {}
