@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from asyncio.subprocess import PIPE
+import requests
 import git
 from git import Repo, InvalidGitRepositoryError
 from clickhouse import DataType, RepoClickHouseClient
@@ -73,6 +74,12 @@ async def read_and_display(*cmd, cwd=os.getcwd(), stdin=None):
         rc = await process.wait()
     return rc, stdout, stderr
 
+def get_token():
+    token = os.environ.get('GITHUB_TOKEN')
+    if not token:
+        raise Exception("No token in env")
+    
+    return token
 
 def is_valid_repo(repo_name):
     g = git.cmd.Git()
@@ -81,7 +88,6 @@ def is_valid_repo(repo_name):
     except:
         return False
     return True
-
 
 def git_import(repo_path, custom_params=[]):
     logging.info(f'generating git history at {repo_path}')
