@@ -2,7 +2,7 @@ botocore==1.29.103
 certifi==2023.7.22
 clickhouse-connect==0.5.21
 gitdb==4.0.10
-GitPython==3.1.32
+GitPython==3.1.37
 jmespath==1.0.1
 lz4==4.3.2
 numpy==1.24.2
