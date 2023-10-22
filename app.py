@@ -3,8 +3,6 @@ import argparse
 from clickhouse import ClickHouse, RepoClickHouseClient
 from clickhub import load_config, load_types
 from repo import importer, schedule
-import boto3
-import sys
 
 
 parser = argparse.ArgumentParser(
@@ -48,7 +46,7 @@ def process():
     repos_in_db = client.query_row(
         f"SELECT COUNT(repo_name) FROM git.commits WHERE repo_name = '{repo}'"
     )
-    if repos_in_db[0] >= 0:
+    if repos_in_db[0] > 0:
         return "ALREADY_PROCESSED", 200
 
     try:

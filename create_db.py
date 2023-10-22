@@ -1,7 +1,6 @@
 from clickhouse import ClickHouse, RepoClickHouseClient
 import argparse
 from clickhub import load_config, load_types
-import types
 
 
 parser = argparse.ArgumentParser(
@@ -15,7 +14,7 @@ parser.add_argument("-d", "--debug", action="store_true", help="debug")
 args = parser.parse_args()
 
 config = load_config(args.config)
-types = load_types()
+type = load_types()
 
 clickhouse = ClickHouse(
     host=config["host"],
@@ -30,7 +29,7 @@ client = RepoClickHouseClient(clickhouse)
 client.query_row("CREATE DATABASE IF NOT EXISTS git")
 
 for i in range(3):
-    client.query_row(types[i].statement)
+    client.query_row(type[i].statement)
 
 client.query_row(
     f"""

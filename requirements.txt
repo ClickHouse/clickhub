@@ -15,3 +15,4 @@ smmap==5.0.0
 urllib3==1.26.18
 zstandard==0.20.0
 flask==2.2.5
+requests==2.27.1

@@ -1,0 +1,9 @@
+FROM clickhouse/clickhouse-server
+
+WORKDIR /usr/src/git
+
+COPY . .
+
+RUN apt update && apt-get install python3-pip -y && apt-get install git -y && pip install --no-cache-dir -r requirements.txt 
+
+ENTRYPOINT ["python3", "./clickhub.py", "start_worker"]
